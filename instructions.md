@@ -1,44 +1,58 @@
-# Phase 2: Mock Data & Zustand Store
+# Phase 3: Intent Router (Gemini 2.0 Flash)
 
 ## Task
-Build the data layer: TypeScript types, realistic mock LiveLoot data, and a Zustand store with actions for all 4 intent types.
+Build the custom intent router that takes natural language commands and returns structured, validated intents using Gemini's structured output.
 
 ## Files to Create
 
-### `src/store/types.ts`
-Type definitions for the entire data model:
-- `User` — id, username, displayName, email, role (buyer/seller/admin), status (active/warned/suspended/banned), balance, creditBalance, joinedAt
-- `Order` — id, buyerUsername, sellerUsername, itemName, amount, status (completed/disputed/refunded/pending), streamId, createdAt
-- `Stream` — id, sellerUsername, title, category, status (live/ended), viewerCount, items[], startedAt
-- `SupportTicket` — id, reporterUsername, targetUsername, orderId?, type (dispute/complaint/fraud_report), status (open/in_progress/resolved), priority, description, createdAt
-- `ActionLogEntry` — id, intentType, payload, status (executed/cancelled), executedAt, executedBy
-- `Intent` types — `RefundOrderIntent`, `FlagAccountIntent`, `GrantCreditIntent`, `QueryStateIntent`, union type `Intent`
+### `src/lib/gemini.ts`
+Gemini client singleton:
+- Initialize `GoogleGenAI` with `GOOGLE_API_KEY` from env
+- Export a configured client instance
+- Model: `gemini-2.0-flash`
 
-### `src/store/seed-data.ts`
-Realistic LiveLoot mock data:
-- **8 users**: sneakerhead99 (buyer), sellerX (seller), vintagequeen (seller), funko_king (buyer), cardshark_mike (seller), luxbags_liz (seller), mod_sarah (CX rep/admin), ops_manager_j (admin)
-- **4 active streams**: Live auctions for sneakers, vintage clothing, funko pops, trading cards — each with 3-5 items, viewer counts, seller refs
-- **12 orders**: Mix of completed/disputed/refunded/pending across different buyer-seller pairs, realistic item names and prices
-- **6 support tickets**: Open tickets referencing specific orders/users with varying priorities
+### `src/lib/intents/schemas.ts`
+Zod schemas mirroring the TypeScript intent types:
+- `refundOrderSchema` — validates REFUND_ORDER payload
+- `flagAccountSchema` — validates FLAG_ACCOUNT payload
+- `grantCreditSchema` — validates GRANT_CREDIT payload
+- `queryStateSchema` — validates QUERY_STATE payload
+- `intentSchema` — discriminated union of all 4
+- `intentArraySchema` — array of intents (for batch support)
 
-### `src/store/index.ts`
-Zustand store (`useAppStore`) with:
-- **State**: users, orders, streams, tickets, actionLog, pendingIntents
-- **Actions**:
-  - `refundOrder(orderId, amount?, reason)` → sets order status to "refunded", adjusts user balance
-  - `flagAccount(username, action, reason)` → sets user status (warned/suspended/banned)
-  - `grantCredit(username, amount, reason)` → adds to user creditBalance
-  - `queryState(entity, query)` → read-only lookup, returns matching records
-  - `addPendingIntent(intent)` → queues intent for HITL confirmation
-  - `executeIntent(intentId)` → runs the intent mutation, logs to actionLog
-  - `cancelIntent(intentId)` → removes from pending, logs cancellation
-  - `getActionLog()` → returns full audit trail
+### `src/lib/intents/router.ts`
+The core router function:
+- Takes: `message` (string) + `context` (usernames[], streamIds[], orderIds[] from current state)
+- Builds a system prompt that defines the 4 intent types, their schemas, and the available entities
+- Calls Gemini with `responseMimeType: "application/json"` and `responseSchema` for deterministic structured output
+- Parses response, validates against Zod schemas
+- Returns: `Intent[]` (supports batching — 1 prompt → N intents)
+- Error handling: returns descriptive error if Gemini returns invalid structure
+
+### `src/app/api/intents/route.ts`
+POST endpoint:
+- Request body: `{ message: string }`
+- Reads current state context from a helper (usernames, order IDs, stream IDs)
+- Calls the router
+- Response: `{ intents: Intent[] }` or `{ error: string }`
+- Validates `GOOGLE_API_KEY` is present
+
+### `src/lib/intents/context.ts`
+Helper to extract entity context from the store for the AI prompt:
+- Lists all usernames
+- Lists all order IDs with status
+- Lists all stream IDs with titles
+- This context is injected into the system prompt so Gemini can validate entities
 
 ## Design Decisions
-- All mutations log to `actionLog` for audit trail (immutable append-only)
-- `pendingIntents` is the HITL queue — intents land here before execution
-- Store is pre-seeded on initialization (no lazy loading)
-- No persistence — state resets on page refresh (intentional for a demo)
+- Structured output via `responseSchema` (not free-text parsing) — deterministic, no regex
+- Context injection means the AI knows what entities exist — "No Toy Inputs" directive
+- Zod validation is a second safety net after Gemini's schema enforcement
+- The route handler is server-side only — API key never reaches the client
+
+## Dependencies
+- `zod` (need to install — for schema validation)
 
 ## Risks
-- None significant. This is pure TypeScript + Zustand, no external dependencies.
+- Need a valid `GOOGLE_API_KEY` to test. We'll need to set up `.env.local`.
+- Gemini structured output schema format may differ from Zod — will need to build the JSON schema manually for the API call.
