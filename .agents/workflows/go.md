@@ -1,7 +1,12 @@
 ---
-description: Read instructions.md and execute the latest instructions
+description: Read instructions.md, plan, then execute upon approval
 ---
 
-I have updated the `instructions.md` file in the project directory. This is the **ONLY** time you are authorized to read this file. Read the new instructions and execute them.
-
-If the changes result in any visual updates to the application, pause and explicitly ask me to verify them before you proceed to the next task.
+1. **Read:** Read `instructions.md` to understand the task.
+2. **Plan:** Replace the contents of `instructions.md` with your implementation plan for the task. Include:
+   - What files will be created/modified
+   - Key design decisions
+   - Any risks or open questions
+3. **STOP:** Wait for the user to review and approve the plan.
+4. **Execute:** Once the user approves, execute the plan.
+5. **Pause on Visual Changes:** If the changes result in any visual updates to the application, pause and explicitly ask the user to verify before proceeding.
