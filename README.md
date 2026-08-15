@@ -28,7 +28,7 @@ The copilot parses this into **structured intents**, validates them against live
                      │ POST /api/intents
                      ▼
 ┌─────────────────────────────────────────────────────┐
-│  Intent Router (Gemini 2.0 Flash)                   │
+│  Intent Router (Gemini 3.5 Flash Lite)               │
 │  Structured JSON output · Zod validation            │
 │  Batch support (1 prompt → N intents)               │
 └────────────────────┬────────────────────────────────┘
@@ -65,7 +65,7 @@ The copilot parses this into **structured intents**, validates them against live
 - **Framework:** Next.js 16 (App Router)
 - **Styling:** Tailwind CSS v4 + shadcn/ui
 - **State:** Zustand (pre-seeded with realistic mock data)
-- **AI:** Gemini 2.0 Flash via `@google/genai` (structured output)
+- **AI:** Gemini 3.5 Flash Lite via `@google/genai` (structured output)
 - **Evals:** Promptfoo (deterministic intent routing validation)
 - **Extensibility:** Model Context Protocol (MCP) server
 
@@ -95,9 +95,11 @@ pnpm dev
 
 ### Run Evals
 
+> **Note:** The dev server must be running (`pnpm dev`) before executing evals.
+
 ```bash
-pnpm exec promptfoo eval
-pnpm exec promptfoo view
+pnpm exec promptfoo eval    # run 17-case suite against /api/intents
+pnpm exec promptfoo view    # open results UI
 ```
 
 <br/>
@@ -116,13 +118,20 @@ src/
 │   └── state-panel.tsx     # Live state viewer
 ├── lib/intents/            # Intent router engine
 │   ├── router.ts           # Gemini structured output parser
-│   ├── schemas.ts          # Zod intent schemas
-│   └── executor.ts         # Intent → state mutation
+│   └── schemas.ts          # Zod intent schemas
 └── store/                  # Zustand state + mock data
 
-mcp/                        # MCP server (reusable skill)
-evals/                      # Promptfoo eval config + test cases
+mcp/                        # Standalone MCP server (see mcp/README.md)
+promptfooconfig.yaml        # Promptfoo eval suite — 17 test cases, 100% pass rate
 ```
+
+<br/>
+
+## MCP Server
+
+The intent router is also published as a standalone [Model Context Protocol](https://modelcontextprotocol.io) server, allowing any MCP-compatible client (Claude Desktop, Cursor, etc.) to call `route_intent` directly.
+
+See [`mcp/README.md`](./mcp/README.md) for setup and Claude Desktop integration instructions.
 
 <br/>
 

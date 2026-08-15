@@ -6,6 +6,7 @@ description: "LiveLoot Ops Copilot — Intent Router Eval Suite"
 providers:
   - id: "http"
     config:
+      # NOTE: pnpm dev must be running before executing evals
       url: "http://localhost:3000/api/intents"
       method: "POST"
       headers:

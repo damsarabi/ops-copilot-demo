@@ -34,6 +34,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (message.length > 500) {
+    return Response.json(
+      { error: "Message too long — maximum 500 characters" },
+      { status: 400 }
+    );
+  }
+
   // Build context from seed data
   // In a real app, this would read from the Zustand store or a database
   const context = buildRouterContext(seedUsers, seedOrders, seedStreams);

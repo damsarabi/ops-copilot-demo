@@ -1,62 +1,72 @@
-# Phase 5: Promptfoo Eval Suite
+# Pre-Deployment Code Audit
 
-## Task
-Configure `promptfooconfig.yaml` with 15+ test cases validating intent routing accuracy, edge case handling, and batch command support.
+## Status
+Phase 5 (Eval Suite) ✅ — Phase 6 (MCP Server) ✅ — Phase 7 (Deploy) pending audit below.
 
 ## Goal
-Prove 95%+ routing accuracy across all 4 intent types, including ambiguous, destructive, and multi-intent commands.
+Clean up the codebase before pushing to GitHub (public) and deploying to Vercel.
+All items should be addressed in a single commit before deploy.
 
-## Files to Create
+---
 
-### `promptfooconfig.yaml` (project root)
-Main eval config connecting to our `/api/intents` endpoint.
+## 🔴 P1 — Fix Before Deploy
 
-### `evals/prompts/system.txt`
-Extracted system prompt for standalone eval testing (mirrors `router.ts` system prompt).
+### 1. README — 3 inaccuracies
+- Model name: "Gemini 2.0 Flash" → "Gemini 3.5 Flash Lite"
+- Remove `executor.ts` from project structure (file doesn't exist)
+- Replace `evals/` directory entry with `promptfooconfig.yaml` at root
 
-### `evals/assert-helpers.js`
-Custom assertion helpers for validating structured intent payloads.
+### 2. Delete unused default Next.js assets
+Files to delete from `public/`:
+- `vercel.svg`
+- `next.svg`
+- `file.svg`
+- `globe.svg`
+- `window.svg`
 
-## Test Case Categories (15+)
+None are referenced in code. Pure boilerplate noise.
 
-### Happy Path — Single Intents (4 cases)
-1. Basic refund: `"Refund @sneakerhead99 for the damaged funko pop"` → REFUND_ORDER
-2. Grant credit: `"Give @vintage_collector $50 credit for delayed shipping"` → GRANT_CREDIT  
-3. Warning: `"Issue a warning to @sellerX for non-delivery"` → FLAG_ACCOUNT { action: "warning" }
-4. Query: `"Show me all disputed orders"` → QUERY_STATE { entity: "order" }
+### 3. Gitignore `instructions.md`
+This is an agent task file, not for public consumption.
 
-### Batch Commands (3 cases)
-5. Refund + warning: `"Refund @sneakerhead99 and warn @sellerX"` → [REFUND_ORDER, FLAG_ACCOUNT]
-6. Ban + credit: `"Ban @cardshark_mike and give @victim_buyer $100 credit"` → [FLAG_ACCOUNT { action: "ban" }, GRANT_CREDIT]
-7. Triple batch: `"Refund buyer, warn seller, and query all open tickets"` → [REFUND_ORDER, FLAG_ACCOUNT, QUERY_STATE]
+---
 
-### Severity Escalation (3 cases)
-8. Warning vs ban differentiation: `"Issue a final warning"` → action: "warning" (not ban)
-9. Suspension: `"Suspend payouts for @cardshark_mike"` → action: "suspend_payouts"
-10. Ban: `"Permanently ban @cardshark_mike for fraud"` → action: "ban"
+## 🟡 P2 — Best Practices
 
-### Context Resolution (2 cases)
-11. Order resolution: `"Refund the funko pop order"` → resolves orderId from context
-12. Non-existent user: `"Refund @ghost_user123"` → empty [] or graceful fallback
-
-### Ambiguous / Edge Cases (3 cases)
-13. Typo tolerance: `"Refund @sneakerhed99 for funko pop"` → matches @sneakerhead99
-14. Implicit full refund: `"Refund @sneakerhead99"` → REFUND_ORDER, amount omitted (full)
-15. Unintelligible input: `"asdf qwerty blah"` → returns []
-
-## Assertions Strategy
-- `type` field must match expected intent type (exact string match)
-- `payload.action` must be within enum for FLAG_ACCOUNT
-- Batch: array length must match expected count
-- All responses must be valid JSON arrays
-- No invented usernames — only usernames from seed context
-
-## Install
-```bash
-pnpm add -D promptfoo
+### 4. Add input length guard to `/api/intents`
+File: `src/app/api/intents/route.ts`
+After message validation, add:
+```typescript
+if (message.length > 500) {
+  return Response.json({ error: "Message too long (max 500 chars)" }, { status: 400 });
+}
 ```
 
-## Run Command
-```bash
-pnpm exec promptfoo eval
+### 5. Add comment to `promptfooconfig.yaml`
+Note that `pnpm dev` must be running before executing evals.
+
+---
+
+## 🟢 P3 — Polish
+
+### 6. Add MCP section to README
+Reference `mcp/README.md` with a brief description and link.
+
+### 7. Fix `.env.example` comment
+Update model name reference from "Gemini 2.0 Flash" → "Gemini 3.5 Flash Lite".
+
+### 8. Add security headers to `next.config.ts`
+Standard headers: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`.
+
+---
+
+## Commit Message (draft)
 ```
+chore: pre-deploy audit — docs, cleanup, security hardening
+```
+
+## After This Commit
+→ Push all commits to GitHub
+→ Connect repo to Vercel
+→ Set GOOGLE_API_KEY in Vercel env vars
+→ Deploy
