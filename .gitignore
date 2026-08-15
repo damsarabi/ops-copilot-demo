@@ -45,8 +45,10 @@ evals/output/
 .promptfoo/
 
 # MCP Server
+mcp/.env
 mcp/dist/
 mcp/node_modules/
 
 # Private / scratch
 temp/
+

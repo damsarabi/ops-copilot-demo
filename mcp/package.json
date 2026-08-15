@@ -1,0 +1,23 @@
+{
+  "name": "liveloot-ops-router-mcp",
+  "version": "1.0.0",
+  "description": "LiveLoot Ops Copilot — Intent Router as an MCP Tool",
+  "type": "module",
+  "bin": {
+    "liveloot-router": "./dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@google/genai": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "dotenv": "^17.4.2",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
