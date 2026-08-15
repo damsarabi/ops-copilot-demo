@@ -6,7 +6,7 @@ export const refundOrderPayloadSchema = z.object({
   orderId: z.string().optional(),
   buyerUsername: z.string(),
   reason: z.string(),
-  amount: z.number().optional(),
+  amount: z.coerce.number().optional(),
 });
 
 export const flagAccountPayloadSchema = z.object({
@@ -17,7 +17,7 @@ export const flagAccountPayloadSchema = z.object({
 
 export const grantCreditPayloadSchema = z.object({
   username: z.string(),
-  amount: z.number(),
+  amount: z.coerce.number(),
   reason: z.string(),
 });
 

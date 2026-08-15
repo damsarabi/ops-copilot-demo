@@ -1,0 +1,250 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+
+description: "LiveLoot Ops Copilot — Intent Router Eval Suite"
+
+# ─── Provider: POST to our /api/intents endpoint ───────────────
+providers:
+  - id: "http"
+    config:
+      url: "http://localhost:3000/api/intents"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        message: "{{message}}"
+      # Extract the intents array (or raw error) from the response
+      transformResponse: "json.error ? JSON.stringify({ error: json.error, raw: json.rawResponse }) : JSON.stringify(json.intents)"
+
+# ─── Prompt: just the user message (system prompt lives in router) ─
+prompts:
+  - "{{message}}"
+
+# ─── Default Assertions applied to all tests ───────────────────
+defaultTest:
+  assert:
+    - type: is-json
+      metric: valid-json
+
+# ─── Test Cases ────────────────────────────────────────────────
+tests:
+
+  # ── Happy Path: Single Intents ─────────────────────────────────
+
+  - description: "HP-1 | Basic refund by buyer username"
+    vars:
+      message: "Refund @sneakerhead99 for the damaged Nike Dunk Low Panda"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          return intents.length === 1
+            && intents[0].type === 'REFUND_ORDER'
+            && intents[0].payload.buyerUsername === 'sneakerhead99';
+        metric: correct-intent-type
+
+  - description: "HP-2 | Grant credit with explicit amount"
+    vars:
+      message: "Give @funko_king $50 credit for delayed shipping on the Iron Man Funko"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          return intents.length === 1
+            && intents[0].type === 'GRANT_CREDIT'
+            && intents[0].payload.username === 'funko_king'
+            && intents[0].payload.amount === 50;
+        metric: correct-intent-type
+
+  - description: "HP-3 | Issue a warning to a seller"
+    vars:
+      message: "Issue a warning to @sellerX for ending the stream early"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          return intents.length === 1
+            && intents[0].type === 'FLAG_ACCOUNT'
+            && intents[0].payload.username === 'sellerX'
+            && intents[0].payload.action === 'warning';
+        metric: correct-intent-type
+
+  - description: "HP-4 | Query disputed orders"
+    vars:
+      message: "Show me all disputed orders"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          return intents.length === 1
+            && intents[0].type === 'QUERY_STATE'
+            && intents[0].payload.entity === 'order';
+        metric: correct-intent-type
+
+  # ── Batch Commands ─────────────────────────────────────────────
+
+  - description: "BATCH-1 | Refund buyer + warn seller (canonical batch)"
+    vars:
+      message: "Refund @sneakerhead99 for the damaged funko pop and issue a warning to @sellerX"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          if (intents.length !== 2) return false;
+          const refund = intents.find(i => i.type === 'REFUND_ORDER');
+          const flag = intents.find(i => i.type === 'FLAG_ACCOUNT');
+          return refund?.payload?.buyerUsername === 'sneakerhead99'
+            && flag?.payload?.username === 'sellerX'
+            && flag?.payload?.action === 'warning';
+        metric: batch-accuracy
+
+  - description: "BATCH-2 | Ban seller + grant credit to victim buyer"
+    vars:
+      message: "Ban @cardshark_mike for fraud and give @sneakerhead99 $100 credit as compensation"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          if (intents.length !== 2) return false;
+          const ban = intents.find(i => i.type === 'FLAG_ACCOUNT');
+          const credit = intents.find(i => i.type === 'GRANT_CREDIT');
+          return ban?.payload?.username === 'cardshark_mike'
+            && ban?.payload?.action === 'ban'
+            && credit?.payload?.username === 'sneakerhead99'
+            && credit?.payload?.amount === 100;
+        metric: batch-accuracy
+
+  - description: "BATCH-3 | Triple: refund + warn + query"
+    vars:
+      message: "Refund @funko_king for the Batman funko, warn @sellerX, and look up all open tickets"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          const types = intents.map(i => i.type);
+          return types.includes('REFUND_ORDER')
+            && types.includes('FLAG_ACCOUNT')
+            && types.includes('QUERY_STATE');
+        metric: batch-accuracy
+
+  # ── Severity Escalation ────────────────────────────────────────
+
+  - description: "SEV-1 | Warning must not be promoted to ban"
+    vars:
+      message: "Give @cardshark_mike a final warning for suspicious behavior"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          const flag = intents.find(i => i.type === 'FLAG_ACCOUNT');
+          return flag?.payload?.action === 'warning';
+        metric: severity-accuracy
+
+  - description: "SEV-2 | Suspend payouts (not ban)"
+    vars:
+      message: "Suspend payouts for @cardshark_mike while we investigate"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          const flag = intents.find(i => i.type === 'FLAG_ACCOUNT');
+          return flag?.payload?.username === 'cardshark_mike'
+            && flag?.payload?.action === 'suspend_payouts';
+        metric: severity-accuracy
+
+  - description: "SEV-3 | Permanent ban with explicit language"
+    vars:
+      message: "Permanently ban @cardshark_mike — confirmed fraud, multiple victims"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          const flag = intents.find(i => i.type === 'FLAG_ACCOUNT');
+          return flag?.payload?.username === 'cardshark_mike'
+            && flag?.payload?.action === 'ban';
+        metric: severity-accuracy
+
+  # ── Context Resolution ─────────────────────────────────────────
+
+  - description: "CTX-1 | Resolve orderId from item name"
+    vars:
+      message: "Refund the Funko Pop Batman order for @funko_king"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          const refund = intents.find(i => i.type === 'REFUND_ORDER');
+          return refund?.payload?.buyerUsername === 'funko_king'
+            && refund?.payload?.orderId === 'ord_002';
+        metric: context-resolution
+
+  - description: "CTX-2 | Implicit full refund (no amount)"
+    vars:
+      message: "Refund @sneakerhead99 for the Charizard — no amount specified"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          const refund = intents.find(i => i.type === 'REFUND_ORDER');
+          // amount should be absent or undefined for a full refund
+          return refund?.payload?.buyerUsername === 'sneakerhead99'
+            && !refund?.payload?.amount;
+        metric: context-resolution
+
+  # ── Edge Cases ─────────────────────────────────────────────────
+
+  - description: "EDGE-1 | Typo in username — should still resolve"
+    vars:
+      message: "Refund @sneakerhed99 for the Nike Dunk"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          // Should still produce a REFUND_ORDER even with slight username typo
+          return intents.length >= 1
+            && intents.some(i => i.type === 'REFUND_ORDER');
+        metric: edge-case-handling
+
+  - description: "EDGE-2 | Non-existent user — should return empty or skip"
+    vars:
+      message: "Ban @totally_fake_user_xyz999 for spamming"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          // Non-existent user: should return empty array
+          return intents.length === 0;
+        metric: edge-case-handling
+
+  - description: "EDGE-3 | Unintelligible input — returns empty"
+    vars:
+      message: "asdf qwerty lorem ipsum blah blah"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          return Array.isArray(intents) && intents.length === 0;
+        metric: edge-case-handling
+
+  - description: "EDGE-4 | Query user (not order)"
+    vars:
+      message: "Look up @cardshark_mike's account"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          const query = intents.find(i => i.type === 'QUERY_STATE');
+          return query?.payload?.entity === 'user';
+        metric: edge-case-handling
+
+  - description: "EDGE-5 | @ symbol correctly stripped"
+    vars:
+      message: "Give credit of $25 to @vintagequeen for the late shipment"
+    assert:
+      - type: javascript
+        value: |
+          const intents = JSON.parse(output);
+          const credit = intents.find(i => i.type === 'GRANT_CREDIT');
+          // username must NOT contain @ prefix
+          return credit?.payload?.username === 'vintagequeen'
+            && !credit?.payload?.username?.startsWith('@');
+        metric: edge-case-handling

@@ -1,72 +1,62 @@
-# Phase 4: Dashboard UI
+# Phase 5: Promptfoo Eval Suite
 
 ## Task
-Build the 3-panel ops dashboard with command bar, HITL action cards, and live state viewer.
+Configure `promptfooconfig.yaml` with 15+ test cases validating intent routing accuracy, edge case handling, and batch command support.
 
-## Layout
-```
-┌──────────────────────────────────────────────────────┐
-│  Header: "LiveLoot Ops Copilot" + status indicators  │
-├──────────────────────────────────────────────────────┤
-│  Command Bar (⌘K style, always visible at top)       │
-│  "Refund buyer @sneakerhead99 for the damaged..."    │
-├───────────────────────┬──────────────────────────────┤
-│  Action Panel (left)  │  State Panel (right)         │
-│                       │                              │
-│  HITL Action Cards:   │  Tabs: Users | Orders |      │
-│  ┌─────────────────┐  │  Streams | Tickets           │
-│  │ REFUND_ORDER    │  │                              │
-│  │ @sneakerhead99  │  │  Searchable data tables      │
-│  │ $110.00         │  │  showing current state       │
-│  │ [Execute] [✗]   │  │                              │
-│  └─────────────────┘  │                              │
-│  ┌─────────────────┐  │  Audit Log (bottom)          │
-│  │ FLAG_ACCOUNT    │  │  Recent actions with         │
-│  │ @sellerX        │  │  timestamps                  │
-│  │ warning ⚠️      │  │                              │
-│  │ [Execute] [✗]   │  │                              │
-│  └─────────────────┘  │                              │
-├───────────────────────┴──────────────────────────────┤
-│  Footer: audit log count, model info                 │
-└──────────────────────────────────────────────────────┘
-```
+## Goal
+Prove 95%+ routing accuracy across all 4 intent types, including ambiguous, destructive, and multi-intent commands.
 
 ## Files to Create
 
-### `src/app/layout.tsx` (modify)
-- Dark theme (zinc-950 background)
-- Import Geist font (already configured by shadcn)
+### `promptfooconfig.yaml` (project root)
+Main eval config connecting to our `/api/intents` endpoint.
 
-### `src/app/page.tsx` (rewrite)
-- Main dashboard layout: header, command bar, 2-panel grid
-- Wire up Zustand store
-- Handle command submission → POST /api/intents → add to pending
+### `evals/prompts/system.txt`
+Extracted system prompt for standalone eval testing (mirrors `router.ts` system prompt).
 
-### `src/components/command-bar.tsx`
-- Text input with ⌘K shortcut to focus
-- Submit on Enter
-- Loading state while Gemini processes
-- Error display for failed intent parsing
+### `evals/assert-helpers.js`
+Custom assertion helpers for validating structured intent payloads.
 
-### `src/components/action-card.tsx`
-- Renders a single pending intent as a card
-- Color-coded by severity (green=credit, amber=refund, red=flag)
-- Shows intent type, target user, key payload details
-- Execute ✓ and Cancel ✗ buttons
-- Expandable raw JSON view
+## Test Case Categories (15+)
 
-### `src/components/state-panel.tsx`
-- Tabbed view: Users | Orders | Streams | Tickets
-- Simple data tables using shadcn Table component
-- Shows live store state (updates when intents execute)
+### Happy Path — Single Intents (4 cases)
+1. Basic refund: `"Refund @sneakerhead99 for the damaged funko pop"` → REFUND_ORDER
+2. Grant credit: `"Give @vintage_collector $50 credit for delayed shipping"` → GRANT_CREDIT  
+3. Warning: `"Issue a warning to @sellerX for non-delivery"` → FLAG_ACCOUNT { action: "warning" }
+4. Query: `"Show me all disputed orders"` → QUERY_STATE { entity: "order" }
 
-### `src/components/audit-log.tsx`
-- Scrollable list of executed/cancelled actions
-- Timestamp, intent type, status badge
+### Batch Commands (3 cases)
+5. Refund + warning: `"Refund @sneakerhead99 and warn @sellerX"` → [REFUND_ORDER, FLAG_ACCOUNT]
+6. Ban + credit: `"Ban @cardshark_mike and give @victim_buyer $100 credit"` → [FLAG_ACCOUNT { action: "ban" }, GRANT_CREDIT]
+7. Triple batch: `"Refund buyer, warn seller, and query all open tickets"` → [REFUND_ORDER, FLAG_ACCOUNT, QUERY_STATE]
 
-## Design Decisions
-- Dark theme (zinc-950 base) — internal tool aesthetic
-- No fancy animations — data density over decoration
-- Color system: green (#22c55e) = credit, amber (#f59e0b) = refund, red (#ef4444) = flag, slate = query
-- All state reads from Zustand — single source of truth
-- Command bar always visible (not hidden behind ⌘K modal)
+### Severity Escalation (3 cases)
+8. Warning vs ban differentiation: `"Issue a final warning"` → action: "warning" (not ban)
+9. Suspension: `"Suspend payouts for @cardshark_mike"` → action: "suspend_payouts"
+10. Ban: `"Permanently ban @cardshark_mike for fraud"` → action: "ban"
+
+### Context Resolution (2 cases)
+11. Order resolution: `"Refund the funko pop order"` → resolves orderId from context
+12. Non-existent user: `"Refund @ghost_user123"` → empty [] or graceful fallback
+
+### Ambiguous / Edge Cases (3 cases)
+13. Typo tolerance: `"Refund @sneakerhed99 for funko pop"` → matches @sneakerhead99
+14. Implicit full refund: `"Refund @sneakerhead99"` → REFUND_ORDER, amount omitted (full)
+15. Unintelligible input: `"asdf qwerty blah"` → returns []
+
+## Assertions Strategy
+- `type` field must match expected intent type (exact string match)
+- `payload.action` must be within enum for FLAG_ACCOUNT
+- Batch: array length must match expected count
+- All responses must be valid JSON arrays
+- No invented usernames — only usernames from seed context
+
+## Install
+```bash
+pnpm add -D promptfoo
+```
+
+## Run Command
+```bash
+pnpm exec promptfoo eval
+```

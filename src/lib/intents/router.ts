@@ -64,6 +64,7 @@ You support exactly 4 intent types:
 
 3. GRANT_CREDIT — Give promotional credit to a user
    Required payload fields: username, amount, reason
+   IMPORTANT: The \`amount\` field is REQUIRED and must ALWAYS be present. Extract the dollar amount from the user's message. Never omit it.
 
 4. QUERY_STATE — Look up information (read-only)
    Required payload fields: entity (one of: "user", "order", "stream"), query
@@ -123,6 +124,24 @@ export async function routeIntent(
         error: "Failed to parse Gemini response as JSON",
         rawResponse: rawText,
       };
+    }
+
+    // Normalize amount fields — Gemini may return numbers as strings
+    // even when the response schema declares them as NUMBER
+    if (Array.isArray(parsed)) {
+      parsed = parsed.map((intent: unknown) => {
+        if (typeof intent === "object" && intent !== null) {
+          const i = intent as Record<string, unknown>;
+          if (typeof i.payload === "object" && i.payload !== null) {
+            const p = i.payload as Record<string, unknown>;
+            if (typeof p.amount === "string" && p.amount !== "") {
+              const coerced = parseFloat(p.amount);
+              if (!isNaN(coerced)) p.amount = coerced;
+            }
+          }
+        }
+        return intent;
+      });
     }
 
     // Validate against Zod schema (second safety net)
