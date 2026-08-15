@@ -57,7 +57,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "liveloot-router": {
       "command": "node",
-      "args": ["/Users/YOUR_USERNAME/Desktop/Whatnot-ops-copilot/mcp/dist/server.js"],
+      "args": ["/Users/YOUR_USERNAME/Desktop/ops-copilot-demo/mcp/dist/server.js"],
       "env": {
         "GOOGLE_API_KEY": "your_key_here"
       }
