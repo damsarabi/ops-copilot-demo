@@ -47,3 +47,6 @@ evals/output/
 # MCP Server
 mcp/dist/
 mcp/node_modules/
+
+# Private / scratch
+temp/

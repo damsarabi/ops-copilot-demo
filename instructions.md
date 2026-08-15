@@ -1,58 +1,72 @@
-# Phase 3: Intent Router (Gemini 2.0 Flash)
+# Phase 4: Dashboard UI
 
 ## Task
-Build the custom intent router that takes natural language commands and returns structured, validated intents using Gemini's structured output.
+Build the 3-panel ops dashboard with command bar, HITL action cards, and live state viewer.
+
+## Layout
+```
+┌──────────────────────────────────────────────────────┐
+│  Header: "LiveLoot Ops Copilot" + status indicators  │
+├──────────────────────────────────────────────────────┤
+│  Command Bar (⌘K style, always visible at top)       │
+│  "Refund buyer @sneakerhead99 for the damaged..."    │
+├───────────────────────┬──────────────────────────────┤
+│  Action Panel (left)  │  State Panel (right)         │
+│                       │                              │
+│  HITL Action Cards:   │  Tabs: Users | Orders |      │
+│  ┌─────────────────┐  │  Streams | Tickets           │
+│  │ REFUND_ORDER    │  │                              │
+│  │ @sneakerhead99  │  │  Searchable data tables      │
+│  │ $110.00         │  │  showing current state       │
+│  │ [Execute] [✗]   │  │                              │
+│  └─────────────────┘  │                              │
+│  ┌─────────────────┐  │  Audit Log (bottom)          │
+│  │ FLAG_ACCOUNT    │  │  Recent actions with         │
+│  │ @sellerX        │  │  timestamps                  │
+│  │ warning ⚠️      │  │                              │
+│  │ [Execute] [✗]   │  │                              │
+│  └─────────────────┘  │                              │
+├───────────────────────┴──────────────────────────────┤
+│  Footer: audit log count, model info                 │
+└──────────────────────────────────────────────────────┘
+```
 
 ## Files to Create
 
-### `src/lib/gemini.ts`
-Gemini client singleton:
-- Initialize `GoogleGenAI` with `GOOGLE_API_KEY` from env
-- Export a configured client instance
-- Model: `gemini-2.0-flash`
+### `src/app/layout.tsx` (modify)
+- Dark theme (zinc-950 background)
+- Import Geist font (already configured by shadcn)
 
-### `src/lib/intents/schemas.ts`
-Zod schemas mirroring the TypeScript intent types:
-- `refundOrderSchema` — validates REFUND_ORDER payload
-- `flagAccountSchema` — validates FLAG_ACCOUNT payload
-- `grantCreditSchema` — validates GRANT_CREDIT payload
-- `queryStateSchema` — validates QUERY_STATE payload
-- `intentSchema` — discriminated union of all 4
-- `intentArraySchema` — array of intents (for batch support)
+### `src/app/page.tsx` (rewrite)
+- Main dashboard layout: header, command bar, 2-panel grid
+- Wire up Zustand store
+- Handle command submission → POST /api/intents → add to pending
 
-### `src/lib/intents/router.ts`
-The core router function:
-- Takes: `message` (string) + `context` (usernames[], streamIds[], orderIds[] from current state)
-- Builds a system prompt that defines the 4 intent types, their schemas, and the available entities
-- Calls Gemini with `responseMimeType: "application/json"` and `responseSchema` for deterministic structured output
-- Parses response, validates against Zod schemas
-- Returns: `Intent[]` (supports batching — 1 prompt → N intents)
-- Error handling: returns descriptive error if Gemini returns invalid structure
+### `src/components/command-bar.tsx`
+- Text input with ⌘K shortcut to focus
+- Submit on Enter
+- Loading state while Gemini processes
+- Error display for failed intent parsing
 
-### `src/app/api/intents/route.ts`
-POST endpoint:
-- Request body: `{ message: string }`
-- Reads current state context from a helper (usernames, order IDs, stream IDs)
-- Calls the router
-- Response: `{ intents: Intent[] }` or `{ error: string }`
-- Validates `GOOGLE_API_KEY` is present
+### `src/components/action-card.tsx`
+- Renders a single pending intent as a card
+- Color-coded by severity (green=credit, amber=refund, red=flag)
+- Shows intent type, target user, key payload details
+- Execute ✓ and Cancel ✗ buttons
+- Expandable raw JSON view
 
-### `src/lib/intents/context.ts`
-Helper to extract entity context from the store for the AI prompt:
-- Lists all usernames
-- Lists all order IDs with status
-- Lists all stream IDs with titles
-- This context is injected into the system prompt so Gemini can validate entities
+### `src/components/state-panel.tsx`
+- Tabbed view: Users | Orders | Streams | Tickets
+- Simple data tables using shadcn Table component
+- Shows live store state (updates when intents execute)
+
+### `src/components/audit-log.tsx`
+- Scrollable list of executed/cancelled actions
+- Timestamp, intent type, status badge
 
 ## Design Decisions
-- Structured output via `responseSchema` (not free-text parsing) — deterministic, no regex
-- Context injection means the AI knows what entities exist — "No Toy Inputs" directive
-- Zod validation is a second safety net after Gemini's schema enforcement
-- The route handler is server-side only — API key never reaches the client
-
-## Dependencies
-- `zod` (need to install — for schema validation)
-
-## Risks
-- Need a valid `GOOGLE_API_KEY` to test. We'll need to set up `.env.local`.
-- Gemini structured output schema format may differ from Zod — will need to build the JSON schema manually for the API call.
+- Dark theme (zinc-950 base) — internal tool aesthetic
+- No fancy animations — data density over decoration
+- Color system: green (#22c55e) = credit, amber (#f59e0b) = refund, red (#ef4444) = flag, slate = query
+- All state reads from Zustand — single source of truth
+- Command bar always visible (not hidden behind ⌘K modal)
