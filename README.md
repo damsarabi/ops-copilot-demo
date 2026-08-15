@@ -1,6 +1,6 @@
-# Whatnot Ops Copilot
+# LiveLoot Ops Copilot
 
-> An intent-based AI operations tool for Whatnot's CX and Trust & Safety teams.  
+> An intent-based AI operations tool for LiveLoot's CX and Trust & Safety teams.  
 > Natural language in → structured, human-approved actions out.
 
 <br/>
@@ -62,7 +62,7 @@ The copilot parses this into **structured intents**, validates them against live
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router)
+- **Framework:** Next.js 16 (App Router)
 - **Styling:** Tailwind CSS v4 + shadcn/ui
 - **State:** Zustand (pre-seeded with realistic mock data)
 - **AI:** Gemini 2.0 Flash via `@google/genai` (structured output)

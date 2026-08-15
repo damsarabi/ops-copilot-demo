@@ -1,8 +1,8 @@
-# Whatnot Ops Copilot — Project Charter
+# LiveLoot Ops Copilot — Project Charter
 
 ## 1. Project Overview & Vision
 
-The **Whatnot Ops Copilot** is an intent-based AI operations tool that demonstrates high-velocity, high-judgment AI engineering. Built in a single weekend, it targets the specific workflows of Whatnot's Customer Experience (CX) and Trust & Safety (T&S) teams — while establishing a **reusable cross-org pattern** that any team can adopt.
+The **LiveLoot Ops Copilot** is an intent-based AI operations tool that demonstrates high-velocity, high-judgment AI engineering. Built in a single weekend, it targets the specific workflows of a live commerce platform's Customer Experience (CX) and Trust & Safety (T&S) teams — while establishing a **reusable cross-org pattern** that any team can adopt.
 
 Instead of a generic "chat" interface, this tool uses natural language to drive concrete, state-modifying actions via a custom **intent router** powered by Gemini structured output. It proves the ability to go from a vague operational problem ("CX reps take too many clicks to refund stream items") to a deterministic, evaluated, and safe AI tool — in days, not months.
 
@@ -17,9 +17,9 @@ The intent router is not a one-off. It's a **platform primitive**:
 
 | Layer | Technology | Rationale |
 |---|---|---|
-| **Framework** | Next.js 15 (App Router) | Server-side route handlers keep API keys secure; App Router enables streaming |
+| **Framework** | Next.js 16 (App Router) | Server-side route handlers keep API keys secure; App Router enables streaming |
 | **Styling** | Tailwind CSS v4 + shadcn/ui | Dense, Retool-style internal dashboards with minimal custom CSS |
-| **State** | Zustand | Lightweight, no boilerplate, pre-seeded with mock Whatnot data |
+| **State** | Zustand | Lightweight, no boilerplate, pre-seeded with mock LiveLoot data |
 | **AI** | Gemini 2.0 Flash via `@google/genai` | Structured JSON output, fast inference, low cost for high-volume routing |
 | **Evals** | Promptfoo | Deterministic intent routing validation with edge case coverage |
 | **Extensibility** | Model Context Protocol (MCP) | Exposes router as reusable skill for Claude Desktop, Cursor, etc. |
@@ -28,7 +28,7 @@ The intent router is not a one-off. It's a **platform primitive**:
 
 The application operates on an **intent-based workflow**:
 
-1. **The State:** A global Zustand store pre-seeded with realistic mock Whatnot data (Active Streams, Users, Recent Orders, Support Tickets).
+1. **The State:** A global Zustand store pre-seeded with realistic mock LiveLoot data (Active Streams, Users, Recent Orders, Support Tickets).
 2. **The Input:** An Ops Manager types a complex command (e.g., *"Refund buyer @sneakerhead99 for the damaged funko pop on @sellerX's stream and issue a warning to the seller."*).
 3. **The Router:** A custom intent router powered by Gemini 2.0 Flash parses this into an array of structured JSON intents, validated against Zod schemas.
 4. **The Confirmation:** The frontend renders **Action Confirmation Cards** (Human-in-the-Loop) — AI proposes, humans dispose.
